@@ -1,0 +1,126 @@
+---
+title: "Retrieve NCBI Sequences"
+author: "Pablo Arozarena Donelli"
+output: html_document
+---
+
+NCBI offers tools for automated data retrieval through its E-utilities. By leveraging tools such as **ESearch** and **EFetch**, users can perform queries to search specific databases online and retrieve detailed data, including nucleotide sequences in FASTA format
+
+### 1. Libraries
+
+```{r, message=FALSE}
+library(tidyverse)
+library(httr) #enables interaction with the NCBI E-utilities API
+library(xml2) #enables to extract info from XML formats
+```
+
+- **httr** enables interaction with NCBI E-utilities API by sending queries and retrieving data over the internet
+
+- **xml2** enables to extract information from XML format responses. Many NCBI E-utilities responses are in XML format, which is a structured way to represent hierarchical data
+
+### 2. Serch in NCBI databse - ESearch
+
+This code defines a function `search_ncbi` that sends a query to NCBI’s **ESearch API**, retrieves the response in XML format, and extracts the record IDs from the result:
+
+```{r}
+search_ncbi <- function(query, db = "nuccore", retmax = 10) 
+  {
+  base_url <- "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+ 
+   response <- GET(base_url, query = list(
+    db = db,
+    term = query,
+    retmax = retmax,
+    retmode = "xml"
+  ))
+  
+  #extract IDs
+  xml <- content(response, as = "parsed")
+  ids <- xml_find_all(xml, ".//Id") %>% xml_text()
+  return(ids)
+}
+```
+
+Note that here we are using nuccore (nucleotide core) database, but other databases can be used (e.g. NCBI virus)
+
+### 3. Fetch Sequences Into FASTA Files - EFetch
+
+This code defines a function `fetch_sequences` that retrieves nucleotide sequence data in a FASTA format from NCBI’s **EFetch** API based on a list of record IDs:
+
+```{r}
+fetch_sequences <- function(ids, db = "nuccore", rettype = "fasta") 
+  {
+  base_url <- "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+  id_string <- paste(ids, collapse = ",")
+  
+  response <- GET(base_url, query = list(
+    db = db,
+    id = id_string,
+    rettype = rettype,
+    retmode = "text"
+  ))
+  
+  return(content(response, as = "text"))
+}
+```
+
+### 4. How To Use
+
+```{r, eval=FALSE}
+# Define a query for searching a specific organism or condition
+query <- "<Your_Query_Here>"  # Replace with a specific query string like "Virus[Organism]"
+
+# Use the search_ncbi function to fetch IDs based on the query
+ids <- search_ncbi(query, retmax = "<Number_of_Records>")
+
+# Display the IDs found
+print(paste("Found IDs:", paste(ids, collapse = ", ")))
+
+# Check if IDs were retrieved before attempting to fetch sequences
+if (length(ids) > 0) {
+  fasta_data <- fetch_sequences(ids)
+  writeLines(fasta_data, "<Your_Output_File_Name.fasta>")
+  
+  # Notify the user that the sequences were successfully saved
+  print("Sequences have been saved to '<Your_Output_File_Name.fasta>'")
+} else {
+ 
+   # Notify the user if no IDs were found
+  print("No IDs were found for the query.")
+}
+```
+
+### 5. Example - Influenza A virus
+
+```{r, warning=FALSE, message=FALSE}
+query <- "Influenza A virus[ORGANISM]"
+ids <- search_ncbi(query, retmax = 10)
+
+print(paste("Found IDs:", paste(ids, collapse = ", ")))
+
+if (length(ids) > 0) {
+  fasta_data <- fetch_sequences(ids)
+  writeLines(fasta_data, "influenza_a_virus.fasta")
+  print("Sequences have been saved to 'influenza_a_virus.fasta'")
+} else {
+  print("No IDs were found for the query.")
+}
+```
+
+To avoid short sequences and fetch actual genes or genomes we can filter by sequence length. In this case we are looking for sequences between 10kb and 20kb:
+
+```{r, warning=FALSE, message=FALSE}
+query <- "Influenza A virus[ORGANISM] AND 8000:20000[Sequence Length]"
+ids <- search_ncbi(query, retmax = 10)
+
+print(paste("Found IDs:", paste(ids, collapse = ", ")))
+
+if (length(ids) > 0) {
+  fasta_data <- fetch_sequences(ids)
+  writeLines(fasta_data, "influenza_a_virus_genome.fasta")
+  print("Sequences have been saved to 'influenza_a_virus_genome.fasta'")
+} else {
+  print("No IDs were found for the query.")
+}
+```
+
