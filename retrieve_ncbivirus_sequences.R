@@ -3,7 +3,8 @@ install.packages("xml2")
 install.packages("tidyverse")
 
 ##library(tidyverse)
-library(httr) #enables interaction with the NCBI E-utilities API
+library(tidyverse)
+ibrary(httr) #enables interaction with the NCBI E-utilities API
 library(xml2) #enables to extract info from XML formats
 
 ##### SEARCH IN NCBI DATABASE - ESearch #####
@@ -83,7 +84,7 @@ if (length(ids) > 0) {
 
 #To avoid short sequences and fetch actual genes or genomes we can filter by sequence length
 
-query <- "Influenza A virus[ORGANISM] AND 5000:20000[Sequence Length]"
+query <- "Influenza A virus[ORGANISM] AND 8000:20000[Sequence Length]"
 ids <- search_ncbi(query, retmax = 10)
 
 print(paste("Found IDs:", paste(ids, collapse = ", ")))
@@ -91,7 +92,7 @@ print(paste("Found IDs:", paste(ids, collapse = ", ")))
 if (length(ids) > 0) {
   fasta_data <- fetch_sequences(ids)
   writeLines(fasta_data, "influenza_a_virus_genomes.fasta")
-  print("Sequences have been saved to 'influenza_a_virus_genomes.fasta'")
+  print("Sequences have been saved to 'influenza_a_virus_genome.fasta'")
 } else {
   print("No IDs were found for the query.")
 }

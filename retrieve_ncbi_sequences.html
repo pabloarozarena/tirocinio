@@ -458,7 +458,7 @@ print(paste(&quot;Found IDs:&quot;, paste(ids, collapse = &quot;, &quot;)))</cod
 <pre><code>## [1] &quot;Sequences have been saved to &#39;influenza_a_virus.fasta&#39;&quot;</code></pre>
 <p>To avoid short sequences and fetch actual genes or genomes we can
 filter by sequence length. In this case we are looking for sequences
-between 10kb and 20kb:</p>
+between 8kb and 20kb:</p>
 <pre class="r"><code>query &lt;- &quot;Influenza A virus[ORGANISM] AND 8000:20000[Sequence Length]&quot;
 ids &lt;- search_ncbi(query, retmax = 10)
 

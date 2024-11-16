@@ -107,7 +107,7 @@ if (length(ids) > 0) {
 }
 ```
 
-To avoid short sequences and fetch actual genes or genomes we can filter by sequence length. In this case we are looking for sequences between 10kb and 20kb:
+To avoid short sequences and fetch actual genes or genomes we can filter by sequence length. In this case we are looking for sequences between 8kb and 20kb:
 
 ```{r, warning=FALSE, message=FALSE}
 query <- "Influenza A virus[ORGANISM] AND 8000:20000[Sequence Length]"
