@@ -1,0 +1,284 @@
+---
+title: "Viral Taxogenomic Analysis"
+author: "Pablo Arozarena Donelli"
+date: "2024-12-06"
+output: html_document
+---
+This analysis was conducted using a CSV file generated from a query in the NCBI Virus database. The query was designed to exclude partial and incomplete genomes, ensuring a focus on full genomes. The total number of genomes is 3,353,502. 
+
+```{r, echo=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(gridExtra)
+data <- read.csv("sequences.csv")
+```
+
+
+```{r, echo=FALSE}
+kable(head(data), caption = "Preview of the NCBI Virus Query's Result")
+```
+
+### Sequences Grouped by Family
+Note that several sequences have no assigned family. I've grouped them into "Unspecified"
+
+```{r, echo=FALSE}
+# Replace blank cells with "Unspecified"
+data$Family <- ifelse(data$Family == "", "Unspecified", data$Family)
+```
+
+```{r, echo=FALSE}
+# Group by family and count sequences
+family_counts <- data %>%
+  group_by(Family) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+```
+
+<details>
+<summary>Click to expand the table</summary>
+```{r, echo=FALSE, results='asis'}
+# Generate the table
+kable(family_counts)
+```
+</details>
+..
+
+It is evident that Coronaviridae family has a huge number of sequences. The second  highest number of sequences is represented by the Unspecified Family.
+
+### Unspecified Family
+In the International Committee on Taxonomy of Viruses (ICTV), several genera are assigned to certain classes or orders, but do not make part of a specific family. This is can be due to several reasons:
+
+- For some viruses, the evolutionary connections to other genera or families are not well understood due to limited genetic, structural, or functional data. Without robust evidence, placing these genera in a family would be premature.
+
+- Certain genera may have unique traits that distinguish them significantly from known families.
+
+- New viruses and genera are continually discovered, and it takes time to gather sufficient data to classify them properly. Newly identified genera might initially be placed in a higher taxonomic rank (e.g., order or class) until more evidence supports family-level placement.
+
+- Taxonomic classification often requires agreement among virologists, and for some genera, there may not yet be a consensus about their family-level grouping.
+
+- Genera that do not fit into existing families are sometimes left unassigned to signal the need for further study or to avoid overextending family definitions.
+
+
+```{r, echo=FALSE}
+# Inspect Unspecified Family
+unspecified_data <- data %>%
+  filter(Family == "Unspecified") %>%
+  select(Family, Genus, Species)
+
+# Replace blank cells with "Unspecified"
+unspecified_data$Genus <- ifelse(unspecified_data$Genus == "", "Unspecified", unspecified_data$Genus)
+```
+
+```{r, echo=FALSE}
+genus_counts <- unspecified_data %>%
+  group_by(Genus) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+```
+**Genera that do not have an assigned family:**
+
+<details>
+<summary>Click to expand the table</summary>
+```{r, echo=FALSE, results='asis'}
+# Generate the table
+kable(genus_counts)
+```
+</details>
+..
+
+Most of the sequences don't even have an assigned genus. These sequences could be:
+
+- Unclassified Viruses
+
+- Potential new species or genera awaiting formal classification
+
+- Synthetic constructs
+
+- Artifacts or contaminants
+
+Furthermore, I estimate that about 740 out of 751 genera are part of the class Caudoviricetes, which in 2019 underwent several modifications due to the presence of families composed by viruses that were grouped based on morphological similiraties rather than genetic relatedness. Creating new families requires a minimum of two genera, preferably more, to establish clear demarcation criteria based on core gene sets and phylogenetic analysis. This prerequisite has resulted in a temporary situation where certain taxa remain "unclassified" at the family and order levels within the class Caudoviricetes.
+
+### Viral Genera Analysis
+To avoid excluding genera that are not assigned to a family, I figured that the analysis should be carried out at the genus level rather than at the family level. 
+
+The distribution of the sequences across different genera is in the following table:
+
+```{r,echo=FALSE}
+all_genus <- data %>%
+  group_by(Genus) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+all_genus$Genus <- ifelse(all_genus$Genus == "", "Unspecified", all_genus$Genus)
+```
+
+<details>
+<summary>Click to expand the table</summary>
+```{r, echo=FALSE}
+kable(all_genus)
+```
+</details>
+..
+
+As expected, Betacoronavirus has the higher number of sequences, followed by the "Unspecified" genus that I discussed previously.
+
+Excluding Betacoronavirus and Unspecified genera, the mean number of sequences per genus is 81.83. The sequence distribution is the following:
+
+```{r, echo=FALSE}
+#Filter out Betacoronavirus and Unspecified Genera
+filtered_genus <- all_genus %>%
+  filter(!Genus %in% c("Betacoronavirus", "Unspecified"))
+
+# Mean number of sequences per genus
+mean_count_genus <- mean(filtered_genus$Count)
+
+ggplot(filtered_genus, aes(x = reorder(Genus, -Count), y = Count)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme(axis.text.x = element_blank()) + 
+  labs(title = "Sequence Distribution across Viral Genera", x = "Viral Genus", y = "Count") +
+  geom_hline(yintercept = mean_count_genus, color = "red") +
+  annotate("text", x = 1, y = mean_count_genus + 1, label = paste("Mean =", round(mean_count_genus, 2)), color = "red")
+```
+
+To have a better visualization, I've excluded genera with less than 100 sequences:
+
+
+```{r, echo=FALSE}
+filtered_genus_100 <- filtered_genus %>%
+  filter(Count >=100)
+
+ggplot(filtered_genus_100, aes(x = reorder(Genus, -Count), y = Count)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme(axis.text.x = element_blank()) + 
+  labs(title = "Sequence Distribution across Viral Genera (<100)", x = "Viral Genus", y = "Count") +
+  geom_hline(yintercept = mean_count_genus, color = "red") +
+  annotate("text", x = 1, y = mean_count_genus + 1, label = paste("Mean =", round(mean_count_genus, 2)), color = "red")
+
+```
+
+There are a lot of genera with a low quantity of sequences. For this reason, I've decided to create different ranges to quantify the distribution of the number of sequences across viral genera: 
+
+```{r, echo=FALSE}
+# Define the ranges and labels
+ranges <- c(0, 1, 10, 25, 80, Inf)  # Inclusive lower bound
+labels <- c("1", "2-10", "11-25", "26-80", ">80")
+
+# Classify counts into ranges
+filtered_genus$Range <- cut(
+  filtered_genus$Count,
+  breaks = ranges,
+  labels = labels,
+  right = TRUE,  # Include the upper bound in each range
+  include.lowest = TRUE
+)
+
+# Calculate the number and percentage of Genus per range
+stats <- filtered_genus %>%
+  dplyr::count(Range) %>%
+  dplyr::mutate(
+    Percentage = (n / sum(n)) * 100
+  )
+
+# Add the total row
+total_row <- tibble(
+  Range = "Total",
+  n = sum(stats$n),
+  Percentage = 100
+)
+
+# Convert the table for desired formatting
+final_stats <- stats %>%
+  dplyr::bind_rows(total_row) %>%
+  dplyr::rename(Genus = n) %>%
+  tibble::column_to_rownames(var = "Range")
+
+# Remove the "Total" row since it's not needed for the pie chart
+final_stats_for_plot <- final_stats[rownames(final_stats) != "Total", ]
+
+pie_chart <- ggplot(final_stats_for_plot, aes(x = "", y = Genus, fill = factor(rownames(final_stats_for_plot), levels = rev(rownames(final_stats_for_plot))))) +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  labs(
+    title = "Number of Genus within different Sequence Ranges",
+    fill = "Range"
+  ) +
+  geom_text(
+    aes(
+      label = paste0(round(Percentage, 2), "%"),
+      y = cumsum(Genus) - Genus / 2
+    ),
+    color = "white",
+    size = 3
+  ) +
+  theme_void() +
+  theme(legend.position = "right")
+
+# Create the table
+table_plot <- tableGrob(final_stats, rows = rownames(final_stats))
+
+# Combine the plots
+grid.arrange(pie_chart, table_plot, ncol = 1)
+```
+
+91.8% of genera have less the 80 sequences, which could be a problem in terms of data rebalance. Here is a table of the families that include genera that only fall into the 1-80 range, with the respective number of genera and sequences:
+
+```{r, echo=FALSE}
+family_genus_data <- data %>% 
+  select(Family, Genus)
+
+family_genus_data$Genus <- ifelse(family_genus_data$Genus == "", "Unspecified", family_genus_data$Genus)
+
+filtered_family_genus <- family_genus_data %>% 
+  filter(!Genus %in% c("Betacoronavirus", "Unspecified"))
+
+family_genus_counts <- filtered_family_genus %>%
+  group_by(Family, Genus) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  arrange(desc(Count))
+
+family_genus_counts <- family_genus_counts %>%
+  left_join(filtered_genus %>% select(Genus, Range), by = "Genus")
+
+poor_families <- family_genus_counts %>%
+  group_by(Family) %>%
+  filter(all(Range %in% c("1", "2-10", "11-80"))) %>%
+  distinct(Family)
+
+poor_families <- family_genus_counts %>%
+  group_by(Family) %>%
+  filter(all(Range %in% c("1", "2-10", "11-80"))) %>%
+  summarise(TotalCount = sum(Count), .groups = "drop") %>%
+  arrange(desc(TotalCount)) 
+
+poor_families <- family_genus_counts %>%
+  group_by(Family) %>%
+  filter(all(Range %in% c("1", "2-10", "11-80"))) %>%
+  summarise(
+    Genera = n(),               
+    Sequences = sum(Count)) %>% 
+      arrange(desc(Sequences))
+```
+
+<details>
+<summary>Click to expand the table</summary>
+```{r, echo=FALSE}
+kable(poor_families)
+```
+<details>
+
+### Conclusion and Future Directions 
+
+- Clustering viruses at the family level is challenging due to unassigned genera. Working at the genus level offers more clarity and consistency.
+
+- Excluding sequences without assigned genera could improve dataset quality, as these may be artifacts or synthetic lab-derived viruses.
+
+- With a mean of 81.82 sequences per genus (excluding betacoronaviruses and unspecified genera), downsampling to 81 sequences per genus could effectively rebalance the data.
+
+- Since only 8.2% of genera have more than 80 sequences, merging genera based on sequence similarity could help increase sequence counts for training purposes.
+
+- To address genera with few sequences, exploring additional databases and incorporating partial genomes could enhance the dataset’s representativeness.
+
+#### The N issue
+This analysis has not considered the N issue. Repeating this analysis considering also the Ns will be needed to have more insights. 
+
